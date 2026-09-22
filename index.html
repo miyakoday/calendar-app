@@ -34,7 +34,7 @@ header h1 { font-size: 17px; font-weight: 600; }
 
 #monthLabel { font-size: 15px; font-weight: 600; }
 
-#todayBtn {
+#todayBtn, #jumpBtn {
   padding: 5px 14px;
   border: 1px solid #dadce0;
   border-radius: 4px;
@@ -42,7 +42,7 @@ header h1 { font-size: 17px; font-weight: 600; }
   cursor: pointer;
   font-size: 13px;
 }
-#todayBtn:active { background: #e8eaed; }
+#todayBtn:active, #jumpBtn:active { background: #e8eaed; }
 
 .weekday-bar {
   position: sticky;
@@ -316,9 +316,27 @@ header h1 { font-size: 17px; font-weight: 600; }
 
 <header>
   <h1>カレンダー</h1>
-  <span id="monthLabel"></span>
-  <button id="todayBtn">今日</button>
+  <span id="monthLabel" style="cursor:pointer;"></span>
+  <div style="display:flex;gap:6px;">
+    <button id="jumpBtn">移動</button>
+    <button id="todayBtn">今日</button>
+  </div>
 </header>
+
+<div class="modal-overlay" id="jumpModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>日付に移動</h2>
+    <div class="form-group">
+      <label>移動先の日付</label>
+      <input type="date" id="jumpDateInput">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="jumpCancelBtn">キャンセル</button>
+      <button class="btn-save" id="jumpGoBtn">移動</button>
+    </div>
+  </div>
+</div>
 
 <div class="weekday-bar">
   <span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span><span>日</span>
@@ -364,6 +382,18 @@ header h1 { font-size: 17px; font-weight: 600; }
         <label>終了時刻</label>
         <input type="time" id="endTimeInput" value="10:00">
       </div>
+    </div>
+    <div class="form-group">
+      <label>プロダクション</label>
+      <input type="text" id="productionInput" placeholder="">
+    </div>
+    <div class="form-group">
+      <label>監督</label>
+      <input type="text" id="directorInput" placeholder="">
+    </div>
+    <div class="form-group">
+      <label>ポスプロ</label>
+      <input type="text" id="postproInput" placeholder="">
     </div>
     <div class="form-group">
       <label>色</label>
@@ -625,16 +655,22 @@ function updateMonthLabel() {
 }
 window.addEventListener('scroll', updateMonthLabel, { passive: true });
 
-function scrollToToday(smooth) {
-  // Find the week row containing today
-  const cells = calendarEl.querySelectorAll('.day-cell.today');
-  if (cells.length) {
-    const weekRow = cells[0].closest('.week-row');
+function scrollToDate(dateStr, smooth) {
+  const cell = calendarEl.querySelector(`.day-cell[data-date="${dateStr}"]`);
+  if (cell) {
+    const weekRow = cell.closest('.week-row');
     if (weekRow) {
       const y = weekRow.getBoundingClientRect().top + window.scrollY - 80;
       window.scrollTo({ top: y, behavior: smooth ? 'smooth' : 'instant' });
+      return;
     }
   }
+  // Date outside rendered range
+  alert('表示範囲外の日付です');
+}
+
+function scrollToToday(smooth) {
+  scrollToDate(todayStr, smooth);
 }
 
 // ---- Modal ----
@@ -650,8 +686,13 @@ const colorPicker = document.getElementById('colorPicker');
 const colorOverridesEl = document.getElementById('colorOverrides');
 const overrideList = document.getElementById('overrideList');
 const parkingInput = document.getElementById('parkingInput');
+const productionInput = document.getElementById('productionInput');
+const directorInput = document.getElementById('directorInput');
+const postproInput = document.getElementById('postproInput');
 const deleteBtn = document.getElementById('deleteBtn');
 const modalTitleEl = document.getElementById('modalTitle');
+const jumpModal = document.getElementById('jumpModal');
+const jumpDateInput = document.getElementById('jumpDateInput');
 
 let editingId = null;
 let selectedColor = 'blue';
@@ -688,6 +729,9 @@ function openModal(eventId, defaultDate) {
     startTimeInput.value = ev.startTime || '09:00';
     endTimeInput.value = ev.endTime || '10:00';
     parkingInput.checked = ev.parking || false;
+    productionInput.value = ev.production || '';
+    directorInput.value = ev.director || '';
+    postproInput.value = ev.postpro || '';
     selectedColor = ev.color;
     currentOverrides = { ...(ev.colorOverrides || {}) };
     deleteBtn.style.display = '';
@@ -703,6 +747,9 @@ function openModal(eventId, defaultDate) {
     startTimeInput.value = '09:00';
     endTimeInput.value = '10:00';
     parkingInput.checked = false;
+    productionInput.value = '';
+    directorInput.value = '';
+    postproInput.value = '';
     selectedColor = 'blue';
     deleteBtn.style.display = 'none';
   }
@@ -774,6 +821,9 @@ function saveEvent() {
     startTime: allDay ? '' : startTimeInput.value,
     endTime: allDay ? '' : endTimeInput.value,
     parking: parkingInput.checked,
+    production: productionInput.value.trim(),
+    director: directorInput.value.trim(),
+    postpro: postproInput.value.trim(),
     color: selectedColor,
     colorOverrides: { ...currentOverrides }
   };
@@ -816,8 +866,35 @@ deleteBtn.addEventListener('click', deleteEvent);
 document.getElementById('addBtn').addEventListener('click', () => openModal(null));
 modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
 document.getElementById('todayBtn').addEventListener('click', () => scrollToToday(true));
+
+// Jump modal
+document.getElementById('jumpBtn').addEventListener('click', () => {
+  jumpDateInput.value = todayStr;
+  jumpModal.classList.add('active');
+  jumpDateInput.focus();
+});
+monthLabel.addEventListener('click', () => {
+  jumpDateInput.value = todayStr;
+  jumpModal.classList.add('active');
+  jumpDateInput.focus();
+});
+document.getElementById('jumpCancelBtn').addEventListener('click', () => {
+  jumpModal.classList.remove('active');
+});
+document.getElementById('jumpGoBtn').addEventListener('click', () => {
+  if (!jumpDateInput.value) return;
+  jumpModal.classList.remove('active');
+  scrollToDate(jumpDateInput.value, true);
+});
+jumpModal.addEventListener('click', e => {
+  if (e.target === jumpModal) jumpModal.classList.remove('active');
+});
+
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && modal.classList.contains('active')) closeModal();
+  if (e.key === 'Escape') {
+    if (modal.classList.contains('active')) closeModal();
+    if (jumpModal.classList.contains('active')) jumpModal.classList.remove('active');
+  }
 });
 
 renderCalendar();
