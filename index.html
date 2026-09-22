@@ -87,15 +87,20 @@ header h1 { font-size: 17px; font-weight: 600; }
   cursor: pointer;
 }
 
-.week-row.month-boundary {
-  border-bottom: 2.5px solid #bbb;
-}
-
-.month-divider {
+.month-border-v {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 2.5px;
+  background: #bbb;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.month-border-h {
+  position: absolute;
+  top: -1px;
+  height: 2.5px;
   background: #bbb;
   z-index: 3;
   pointer-events: none;
@@ -677,21 +682,46 @@ function renderWeekRow(weekRow, wi) {
   weekRow.style.minHeight = '';
   weekRow.innerHTML = '';
 
-  // Month boundary lines
+  // Month boundary: L-shaped border around the 1st
+  // Check if this week contains the 1st
+  let firstCol = -1;
   for (let ci = 0; ci < 7; ci++) {
-    if (week[ci].getDate() === 1) {
-      if (ci === 0) {
-        // 1st is Monday: thick line above this row (= thick bottom on previous row)
-        const prevRow = weekRow.previousElementSibling;
-        if (prevRow) prevRow.classList.add('month-boundary');
-      } else {
-        // 1st is mid-week: vertical divider at that column
-        const divider = document.createElement('div');
-        divider.className = 'month-divider';
-        divider.style.left = `calc(${ci} * 100% / 7)`;
-        weekRow.appendChild(divider);
+    if (week[ci].getDate() === 1) { firstCol = ci; break; }
+  }
+
+  if (firstCol === 0) {
+    // 1st is Monday: full-width top border
+    const h = document.createElement('div');
+    h.className = 'month-border-h';
+    h.style.left = '0';
+    h.style.right = '0';
+    weekRow.appendChild(h);
+  } else if (firstCol > 0) {
+    // Vertical line on left of 1st (full height)
+    const v = document.createElement('div');
+    v.className = 'month-border-v';
+    v.style.left = `calc(${firstCol} * 100% / 7)`;
+    weekRow.appendChild(v);
+    // Horizontal line on top from 1st to right edge
+    const h = document.createElement('div');
+    h.className = 'month-border-h';
+    h.style.left = `calc(${firstCol} * 100% / 7)`;
+    h.style.right = '0';
+    weekRow.appendChild(h);
+  }
+
+  // Check if previous week had a mid-week 1st → draw top border on left portion
+  if (wi > 0) {
+    const prevWeek = allWeeks[wi - 1];
+    for (let ci = 1; ci < 7; ci++) {
+      if (prevWeek[ci].getDate() === 1) {
+        const h = document.createElement('div');
+        h.className = 'month-border-h';
+        h.style.left = '0';
+        h.style.width = `calc(${ci} * 100% / 7)`;
+        weekRow.appendChild(h);
+        break;
       }
-      break;
     }
   }
 
