@@ -81,7 +81,7 @@ header h1 { font-size: 17px; font-weight: 600; }
 /* Week row */
 .week-row {
   position: relative;
-  min-height: 56px;
+  min-height: 120px;
   border-bottom: 1px solid #e0e0e0;
   padding-bottom: 2px;
   cursor: pointer;
@@ -295,7 +295,7 @@ header h1 { font-size: 17px; font-weight: 600; }
   header { padding: 12px 20px; }
   header h1 { font-size: 18px; }
   .weekday-bar { font-size: 12px; padding: 6px 0; top: 49px; }
-  .week-row { min-height: 80px; }
+  .week-row { min-height: 130px; }
   .day-number { font-size: 13px; }
   .event-bar { font-size: 11px; }
   .month-bg-label { font-size: 100px; }
@@ -309,7 +309,7 @@ header h1 { font-size: 17px; font-weight: 600; }
 }
 
 @media (min-width: 960px) {
-  .week-row { min-height: 100px; }
+  .week-row { min-height: 150px; }
   .month-bg-label { font-size: 120px; }
 }
 
@@ -633,7 +633,7 @@ function renderCalendar() {
   allEvents = events;
 
   // Create placeholder rows
-  const ROW_HEIGHT = 60; // estimated min height
+  const ROW_HEIGHT = 120; // estimated min height
   weeks.forEach((week, wi) => {
     const weekRow = document.createElement('div');
     weekRow.className = 'week-row week-placeholder';
