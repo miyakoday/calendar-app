@@ -605,6 +605,7 @@ const todayStr = formatDate(today);
 function renderCalendar() {
   const events = loadEvents();
   calendarEl.innerHTML = '';
+  renderedWeeks.clear();
 
   // Date range: 2020-01-01 ~ 2035-12-31
   const rangeStart = new Date(2020, 0, 1);
