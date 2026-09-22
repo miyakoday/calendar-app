@@ -189,11 +189,11 @@ header h1 { font-size: 17px; font-weight: 600; }
 .modal {
   background: #fff;
   border-radius: 16px 16px 0 0;
-  padding: 16px;
-  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   width: 100%;
   max-width: 520px;
-  max-height: 85vh;
+  max-height: 92vh;
   overflow-y: auto;
   box-shadow: 0 -4px 24px rgba(0,0,0,0.15);
   animation: slideUp 0.2s ease-out;
@@ -207,21 +207,21 @@ header h1 { font-size: 17px; font-weight: 600; }
 .modal-handle {
   width: 36px; height: 4px;
   background: #dadce0; border-radius: 2px;
-  margin: 0 auto 12px;
+  margin: 0 auto 8px;
 }
 
-.modal h2 { font-size: 17px; margin-bottom: 14px; }
+.modal h2 { font-size: 16px; margin-bottom: 8px; }
 
-.form-group { margin-bottom: 10px; }
+.form-group { margin-bottom: 6px; }
 .form-group label {
-  display: block; font-size: 12px;
-  color: #5f6368; margin-bottom: 3px;
+  display: block; font-size: 11px;
+  color: #5f6368; margin-bottom: 1px;
 }
 .form-group input[type="text"],
 .form-group input[type="date"],
 .form-group input[type="time"] {
-  width: 100%; padding: 10px 8px;
-  border: 1px solid #dadce0; border-radius: 8px;
+  width: 100%; padding: 7px 8px;
+  border: 1px solid #dadce0; border-radius: 6px;
   font-size: 16px;
   -webkit-appearance: none; appearance: none;
 }
@@ -232,15 +232,19 @@ header h1 { font-size: 17px; font-weight: 600; }
 }
 
 .checkbox-group {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 6px;
 }
-.checkbox-group input { width: 20px; height: 20px; }
-.checkbox-group label { font-size: 14px; }
+.checkbox-group input { width: 18px; height: 18px; }
+.checkbox-group label { font-size: 13px; }
 
-.color-picker { display: flex; gap: 10px; }
+.checkbox-row {
+  display: flex; gap: 16px; margin-bottom: 6px;
+}
+
+.color-picker { display: flex; gap: 8px; }
 
 .color-swatch {
-  width: 32px; height: 32px;
+  width: 28px; height: 28px;
   border-radius: 50%;
   border: 2px solid transparent;
   cursor: pointer;
@@ -250,17 +254,17 @@ header h1 { font-size: 17px; font-weight: 600; }
   box-shadow: 0 0 0 2px #fff, 0 0 0 4px #202124;
 }
 
-.time-row { display: flex; gap: 10px; }
+.time-row { display: flex; gap: 8px; }
 .time-row .form-group { flex: 1; }
 
 .modal-actions {
   display: flex; justify-content: flex-end;
-  gap: 8px; margin-top: 14px;
+  gap: 8px; margin-top: 10px;
 }
 .modal-actions button {
-  padding: 10px 20px; border-radius: 8px;
+  padding: 8px 18px; border-radius: 8px;
   border: none; cursor: pointer;
-  font-size: 15px; font-weight: 500;
+  font-size: 14px; font-weight: 500;
 }
 
 .btn-cancel { background: #f1f3f4; color: #202124; }
@@ -413,13 +417,11 @@ header h1 { font-size: 17px; font-weight: 600; }
         <input type="date" id="endDateInput">
       </div>
     </div>
-    <div class="form-group">
+    <div class="checkbox-row">
       <div class="checkbox-group">
         <input type="checkbox" id="allDayInput" checked>
         <label for="allDayInput">終日</label>
       </div>
-    </div>
-    <div class="form-group">
       <div class="checkbox-group">
         <input type="checkbox" id="parkingInput">
         <label for="parkingInput">駐車場予約</label>
