@@ -308,6 +308,36 @@ header h1 { font-size: 17px; font-weight: 600; }
   .week-row { min-height: 100px; }
   .month-bg-label { font-size: 120px; }
 }
+
+.backup-banner {
+  display: none;
+  background: #fef7e0;
+  border-bottom: 1px solid #f5e6b8;
+  padding: 8px 16px;
+  font-size: 13px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+.backup-banner.show { display: flex; }
+.backup-banner button {
+  padding: 5px 14px;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.backup-banner .backup-now {
+  background: #4285f4;
+  color: #fff;
+}
+.backup-banner .backup-dismiss {
+  background: transparent;
+  color: #5f6368;
+}
 </style>
 </head>
 <body>
@@ -321,6 +351,14 @@ header h1 { font-size: 17px; font-weight: 600; }
     <button id="todayBtn">今日</button>
   </div>
 </header>
+
+<div class="backup-banner" id="backupBanner">
+  <span>前回のバックアップから24時間以上経過</span>
+  <div style="display:flex;gap:6px;">
+    <button class="backup-now" id="backupNowBtn">保存</button>
+    <button class="backup-dismiss" id="backupDismissBtn">後で</button>
+  </div>
+</div>
 
 <div class="modal-overlay" id="jumpModal">
   <div class="modal">
@@ -1004,7 +1042,7 @@ dataModal.addEventListener('click', e => {
   if (e.target === dataModal) dataModal.classList.remove('active');
 });
 
-document.getElementById('exportBtn').addEventListener('click', () => {
+function doExport() {
   const data = localStorage.getItem(STORAGE_KEY) || '[]';
   const blob = new Blob([data], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -1013,7 +1051,11 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   a.download = `calendar-backup-${todayStr}.json`;
   a.click();
   URL.revokeObjectURL(url);
-});
+  localStorage.setItem('last_backup', Date.now().toString());
+  backupBanner.classList.remove('show');
+}
+
+document.getElementById('exportBtn').addEventListener('click', doExport);
 
 document.getElementById('importBtn').addEventListener('click', () => {
   importFile.click();
@@ -1038,6 +1080,25 @@ importFile.addEventListener('change', e => {
   reader.readAsText(file);
   importFile.value = '';
 });
+
+// ---- Backup banner ----
+const backupBanner = document.getElementById('backupBanner');
+
+document.getElementById('backupNowBtn').addEventListener('click', doExport);
+document.getElementById('backupDismissBtn').addEventListener('click', () => {
+  backupBanner.classList.remove('show');
+});
+
+function checkBackupReminder() {
+  const events = loadEvents();
+  if (events.length === 0) return;
+  const last = parseInt(localStorage.getItem('last_backup') || '0');
+  const elapsed = Date.now() - last;
+  if (elapsed > 24 * 60 * 60 * 1000) {
+    backupBanner.classList.add('show');
+  }
+}
+checkBackupReminder();
 
 // ---- Service Worker ----
 if ('serviceWorker' in navigator) {
