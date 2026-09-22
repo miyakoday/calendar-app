@@ -87,6 +87,10 @@ header h1 { font-size: 17px; font-weight: 600; }
   cursor: pointer;
 }
 
+.week-row.month-boundary {
+  border-bottom: 2.5px solid #bbb;
+}
+
 /* Vertical column lines via background */
 .week-row::after {
   content: '';
@@ -662,6 +666,14 @@ function renderWeekRow(weekRow, wi) {
   weekRow.classList.remove('week-placeholder');
   weekRow.style.minHeight = '';
   weekRow.innerHTML = '';
+
+  // Month boundary: if next week's Monday is in a different month than this week's Monday
+  const thisMon = week[0];
+  const nextMon = new Date(thisMon);
+  nextMon.setDate(nextMon.getDate() + 7);
+  if (thisMon.getMonth() !== nextMon.getMonth()) {
+    weekRow.classList.add('month-boundary');
+  }
 
   // Month bg label
   if (allMonthLabelMap[wi]) {
