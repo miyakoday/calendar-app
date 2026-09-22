@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>カレンダー</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #fff;
+  color: #202124;
+  line-height: 1.4;
+  -webkit-tap-highlight-color: transparent;
+}
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #fff;
+  border-bottom: 1px solid #dadce0;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+header h1 { font-size: 17px; font-weight: 600; }
+
+#monthLabel { font-size: 15px; font-weight: 600; }
+
+#todayBtn {
+  padding: 5px 14px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+#todayBtn:active { background: #e8eaed; }
+
+.weekday-bar {
+  position: sticky;
+  top: 45px;
+  z-index: 99;
+  background: #fff;
+  border-bottom: 1px solid #dadce0;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 11px;
+  color: #70757a;
+  padding: 4px 0;
+  max-width: 960px;
+  margin: 0 auto;
+}
+.weekday-bar span:first-child { color: #ea4335; }
+.weekday-bar span:last-child { color: #4285f4; }
+
+#addBtn {
+  width: 52px; height: 52px;
+  border-radius: 50%; border: none;
+  background: #222; color: #fff;
+  font-size: 28px; cursor: pointer;
+  position: fixed; bottom: 20px; right: 20px;
+  z-index: 99;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  display: flex; align-items: center; justify-content: center;
+}
+#addBtn:active { transform: scale(0.95); }
+
+#calendar {
+  max-width: 960px;
+  margin: 0 auto;
+  border-left: 1px solid #e0e0e0;
+}
+
+/* Week row */
+.week-row {
+  position: relative;
+  min-height: 56px;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 2px;
+  cursor: pointer;
+}
+
+/* Vertical column lines via background */
+.week-row::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image: linear-gradient(to right, transparent calc(100% - 1px), #e0e0e0 calc(100% - 1px));
+  background-size: calc(100% / 7) 100%;
+}
+
+.day-numbers-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  position: relative;
+  z-index: 2;
+}
+
+.day-cell {
+  padding: 2px 0 0 3px;
+}
+
+.day-number {
+  font-size: 12px;
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.day-cell.sun .day-number { color: #ea4335; }
+.day-cell.sat .day-number { color: #4285f4; }
+
+.day-cell.today .day-number {
+  background: #4285f4;
+  color: #fff !important;
+  border-radius: 50%;
+}
+
+/* Month background label */
+.month-bg-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 80px;
+  font-weight: 700;
+  color: rgba(0,0,0,0.06);
+  pointer-events: none;
+  z-index: 0;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+/* Event bars */
+.event-slot-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  position: relative;
+  z-index: 2;
+}
+
+.event-bar {
+  font-size: 10px;
+  font-weight: 500;
+  color: #fff;
+  padding: 1px 4px;
+  margin-bottom: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  line-height: 1.4;
+  border-radius: 0;
+}
+
+.event-bar.round-left {
+  border-top-left-radius: 3px;
+  border-bottom-left-radius: 3px;
+  margin-left: 2px;
+}
+.event-bar.round-right {
+  border-top-right-radius: 3px;
+  border-bottom-right-radius: 3px;
+  margin-right: 2px;
+}
+
+.event-bar:active { opacity: 0.8; }
+
+/* Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 200;
+  align-items: flex-end;
+  justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+
+.modal {
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  width: 100%;
+  max-width: 520px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.15);
+  animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.modal-handle {
+  width: 36px; height: 4px;
+  background: #dadce0; border-radius: 2px;
+  margin: 0 auto 12px;
+}
+
+.modal h2 { font-size: 17px; margin-bottom: 14px; }
+
+.form-group { margin-bottom: 10px; }
+.form-group label {
+  display: block; font-size: 12px;
+  color: #5f6368; margin-bottom: 3px;
+}
+.form-group input[type="text"],
+.form-group input[type="date"],
+.form-group input[type="time"] {
+  width: 100%; padding: 10px 8px;
+  border: 1px solid #dadce0; border-radius: 8px;
+  font-size: 16px;
+  -webkit-appearance: none; appearance: none;
+}
+.form-group input:focus {
+  outline: none;
+  border-color: #4285f4;
+  box-shadow: 0 0 0 2px rgba(66,133,244,0.2);
+}
+
+.checkbox-group {
+  display: flex; align-items: center; gap: 8px;
+}
+.checkbox-group input { width: 20px; height: 20px; }
+.checkbox-group label { font-size: 14px; }
+
+.color-picker { display: flex; gap: 10px; }
+
+.color-swatch {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+.color-swatch.selected {
+  border-color: #202124;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #202124;
+}
+
+.time-row { display: flex; gap: 10px; }
+.time-row .form-group { flex: 1; }
+
+.modal-actions {
+  display: flex; justify-content: flex-end;
+  gap: 8px; margin-top: 14px;
+}
+.modal-actions button {
+  padding: 10px 20px; border-radius: 8px;
+  border: none; cursor: pointer;
+  font-size: 15px; font-weight: 500;
+}
+
+.btn-cancel { background: #f1f3f4; color: #202124; }
+.btn-cancel:active { background: #dadce0; }
+.btn-save { background: #4285f4; color: #fff; }
+.btn-save:active { background: #3367d6; }
+.btn-delete { background: #ea4335; color: #fff; margin-right: auto; }
+.btn-delete:active { background: #c5221f; }
+
+.color-overrides {
+  margin-top: 10px; border-top: 1px solid #e0e0e0; padding-top: 10px;
+}
+.color-overrides h3 {
+  font-size: 13px; margin-bottom: 6px; color: #5f6368;
+}
+.override-row {
+  display: flex; align-items: center;
+  gap: 6px; margin-bottom: 5px; font-size: 12px;
+}
+.override-row .date-label { min-width: 50px; font-weight: 500; }
+.override-row .color-swatch { width: 22px; height: 22px; }
+.override-row .color-swatch.selected {
+  box-shadow: 0 0 0 1px #fff, 0 0 0 3px #202124;
+}
+
+/* Desktop */
+@media (min-width: 600px) {
+  header { padding: 12px 20px; }
+  header h1 { font-size: 18px; }
+  .weekday-bar { font-size: 12px; padding: 6px 0; top: 49px; }
+  .week-row { min-height: 80px; }
+  .day-number { font-size: 13px; }
+  .event-bar { font-size: 11px; }
+  .month-bg-label { font-size: 100px; }
+  .event-bar:hover { opacity: 0.85; }
+  .modal-overlay { align-items: center; }
+  .modal {
+    border-radius: 12px; padding: 24px;
+    max-height: 90vh; animation: none;
+  }
+  .modal-handle { display: none; }
+}
+
+@media (min-width: 960px) {
+  .week-row { min-height: 100px; }
+  .month-bg-label { font-size: 120px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>カレンダー</h1>
+  <span id="monthLabel"></span>
+  <button id="todayBtn">今日</button>
+</header>
+
+<div class="weekday-bar">
+  <span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span>
+</div>
+
+<div id="calendar"></div>
+<button id="addBtn">+</button>
+
+<div class="modal-overlay" id="eventModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2 id="modalTitle">予定を作成</h2>
+    <div class="form-group">
+      <label>タイトル</label>
+      <input type="text" id="eventTitleInput" placeholder="予定のタイトル">
+    </div>
+    <div class="form-group">
+      <label>開始日</label>
+      <input type="date" id="startDateInput">
+    </div>
+    <div class="form-group">
+      <label>終了日</label>
+      <input type="date" id="endDateInput">
+    </div>
+    <div class="form-group">
+      <div class="checkbox-group">
+        <input type="checkbox" id="allDayInput" checked>
+        <label for="allDayInput">終日</label>
+      </div>
+    </div>
+    <div class="time-row" id="timeRow" style="display:none;">
+      <div class="form-group">
+        <label>開始時刻</label>
+        <input type="time" id="startTimeInput" value="09:00">
+      </div>
+      <div class="form-group">
+        <label>終了時刻</label>
+        <input type="time" id="endTimeInput" value="10:00">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>色</label>
+      <div class="color-picker" id="colorPicker"></div>
+    </div>
+    <div class="color-overrides" id="colorOverrides" style="display:none;">
+      <h3>日ごとの色変更</h3>
+      <div id="overrideList"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-delete" id="deleteBtn" style="display:none;">削除</button>
+      <button class="btn-cancel" id="cancelBtn">キャンセル</button>
+      <button class="btn-save" id="saveBtn">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS = {
+  blue:   '#4285f4',
+  red:    '#ea4335',
+  green:  '#34a853',
+  orange: '#fbbc04',
+  purple: '#9334e6'
+};
+const COLOR_NAMES = { blue:'青', red:'赤', green:'緑', orange:'オレンジ', purple:'紫' };
+const STORAGE_KEY = 'calendar_events';
+
+function loadEvents() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+}
+function saveEvents(events) { localStorage.setItem(STORAGE_KEY, JSON.stringify(events)); }
+function generateId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+function formatDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function parseDate(s) {
+  const [y,m,d] = s.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+function getEventColorForDate(ev, dateStr) {
+  return (ev.colorOverrides && ev.colorOverrides[dateStr]) || ev.color;
+}
+
+const calendarEl = document.getElementById('calendar');
+const monthLabel = document.getElementById('monthLabel');
+const today = new Date();
+const todayStr = formatDate(today);
+
+function renderCalendar() {
+  const events = loadEvents();
+  calendarEl.innerHTML = '';
+
+  // Date range: 3 months before ~ 9 months after
+  const rangeStart = new Date(today.getFullYear(), today.getMonth() - 3, 1);
+  const rangeEnd = new Date(today.getFullYear(), today.getMonth() + 9, 0); // last day of month+8
+
+  // Align to week boundaries (Sun start)
+  const startDay = new Date(rangeStart);
+  startDay.setDate(startDay.getDate() - startDay.getDay());
+  const endDay = new Date(rangeEnd);
+  if (endDay.getDay() !== 6) endDay.setDate(endDay.getDate() + (6 - endDay.getDay()));
+
+  // Build weeks array
+  const weeks = [];
+  const d = new Date(startDay);
+  while (d <= endDay) {
+    const week = [];
+    for (let i = 0; i < 7; i++) {
+      week.push(new Date(d));
+      d.setDate(d.getDate() + 1);
+    }
+    weeks.push(week);
+  }
+
+  // Determine which week gets the month bg label (week containing the 15th)
+  const monthLabelMap = {}; // weekIdx -> "X月"
+  for (let off = -3; off <= 8; off++) {
+    const mid = new Date(today.getFullYear(), today.getMonth() + off, 15);
+    const midStr = formatDate(mid);
+    for (let wi = 0; wi < weeks.length; wi++) {
+      const ws = formatDate(weeks[wi][0]);
+      const we = formatDate(weeks[wi][6]);
+      if (midStr >= ws && midStr <= we) {
+        monthLabelMap[wi] = `${mid.getMonth()+1}月`;
+        break;
+      }
+    }
+  }
+
+  // Render weeks
+  weeks.forEach((week, wi) => {
+    const weekStartStr = formatDate(week[0]);
+    const weekEndStr = formatDate(week[6]);
+
+    const weekRow = document.createElement('div');
+    weekRow.className = 'week-row';
+
+    // Month bg label
+    if (monthLabelMap[wi]) {
+      const bg = document.createElement('div');
+      bg.className = 'month-bg-label';
+      bg.textContent = monthLabelMap[wi];
+      weekRow.appendChild(bg);
+    }
+
+    // Day numbers row
+    const dayRow = document.createElement('div');
+    dayRow.className = 'day-numbers-row';
+    week.forEach(day => {
+      const dateStr = formatDate(day);
+      const cell = document.createElement('div');
+      cell.className = 'day-cell';
+      cell.dataset.date = dateStr;
+      if (dateStr === todayStr) cell.classList.add('today');
+      if (day.getDay() === 0) cell.classList.add('sun');
+      if (day.getDay() === 6) cell.classList.add('sat');
+
+      const num = document.createElement('div');
+      num.className = 'day-number';
+      num.textContent = day.getDate();
+      cell.appendChild(num);
+      dayRow.appendChild(cell);
+    });
+    weekRow.appendChild(dayRow);
+
+    // --- Event layout ---
+    const activeEvents = events.filter(ev => ev.startDate <= weekEndStr && ev.endDate >= weekStartStr);
+
+    // Sort: earlier start, then longer duration, then title
+    activeEvents.sort((a, b) => {
+      if (a.startDate !== b.startDate) return a.startDate < b.startDate ? -1 : 1;
+      const aDur = parseDate(a.endDate) - parseDate(a.startDate);
+      const bDur = parseDate(b.endDate) - parseDate(b.startDate);
+      if (aDur !== bDur) return bDur - aDur;
+      return a.title.localeCompare(b.title);
+    });
+
+    const slots = []; // slots[i] = bool[7]
+    const placements = [];
+
+    activeEvents.forEach(ev => {
+      const clampedStart = ev.startDate < weekStartStr ? weekStartStr : ev.startDate;
+      const clampedEnd = ev.endDate > weekEndStr ? weekEndStr : ev.endDate;
+      const startCol = parseDate(clampedStart).getDay();
+      const endCol = parseDate(clampedEnd).getDay();
+
+      const isContLeft = ev.startDate < weekStartStr;
+      const isContRight = ev.endDate > weekEndStr;
+
+      // Split into color segments
+      const segments = [];
+      let segStart = startCol;
+      let segColor = getEventColorForDate(ev, formatDate(week[startCol]));
+      for (let c = startCol + 1; c <= endCol; c++) {
+        const dc = getEventColorForDate(ev, formatDate(week[c]));
+        if (dc !== segColor) {
+          segments.push({ s: segStart, e: c - 1, color: segColor });
+          segStart = c;
+          segColor = dc;
+        }
+      }
+      segments.push({ s: segStart, e: endCol, color: segColor });
+
+      // Find available slot
+      let slotIdx = 0;
+      while (true) {
+        if (!slots[slotIdx]) slots[slotIdx] = [false,false,false,false,false,false,false];
+        let fits = true;
+        for (let c = startCol; c <= endCol; c++) {
+          if (slots[slotIdx][c]) { fits = false; break; }
+        }
+        if (fits) break;
+        slotIdx++;
+      }
+      for (let c = startCol; c <= endCol; c++) slots[slotIdx][c] = true;
+
+      segments.forEach((seg, si) => {
+        const isFirst = si === 0;
+        const isLast = si === segments.length - 1;
+        placements.push({
+          ev, slotIdx,
+          startCol: seg.s, endCol: seg.e, color: seg.color,
+          roundLeft: isFirst && !isContLeft,
+          roundRight: isLast && !isContRight,
+          showTitle: isFirst
+        });
+      });
+    });
+
+    // Render event slot rows
+    const numSlots = slots.length;
+    for (let s = 0; s < numSlots; s++) {
+      const slotRow = document.createElement('div');
+      slotRow.className = 'event-slot-row';
+
+      placements
+        .filter(p => p.slotIdx === s)
+        .sort((a, b) => a.startCol - b.startCol)
+        .forEach(p => {
+          const bar = document.createElement('div');
+          bar.className = 'event-bar';
+          if (p.roundLeft) bar.classList.add('round-left');
+          if (p.roundRight) bar.classList.add('round-right');
+          bar.style.background = COLORS[p.color] || COLORS.blue;
+          if (p.color === 'orange') bar.style.color = '#202124';
+          bar.style.gridColumn = `${p.startCol + 1} / ${p.endCol + 2}`;
+          bar.textContent = p.showTitle ? p.ev.title : '';
+          bar.addEventListener('click', e => {
+            e.stopPropagation();
+            openModal(p.ev.id);
+          });
+          slotRow.appendChild(bar);
+        });
+
+      weekRow.appendChild(slotRow);
+    }
+
+    // Click on week row -> create event for that day column
+    weekRow.addEventListener('click', e => {
+      if (e.target.closest('.event-bar')) return;
+      const rect = weekRow.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const col = Math.min(6, Math.floor(x / (rect.width / 7)));
+      openModal(null, formatDate(week[col]));
+    });
+
+    calendarEl.appendChild(weekRow);
+  });
+
+  updateMonthLabel();
+}
+
+// Month label in header based on scroll position
+function updateMonthLabel() {
+  const top = 80;
+  const rows = calendarEl.querySelectorAll('.week-row');
+  for (const row of rows) {
+    if (row.getBoundingClientRect().bottom > top) {
+      const cells = row.querySelectorAll('.day-cell');
+      // Use Thursday (index 4) to determine the month
+      const cell = cells[4] || cells[0];
+      if (cell && cell.dataset.date) {
+        const d = parseDate(cell.dataset.date);
+        monthLabel.textContent = `${d.getFullYear()}年 ${d.getMonth()+1}月`;
+      }
+      break;
+    }
+  }
+}
+window.addEventListener('scroll', updateMonthLabel, { passive: true });
+
+function scrollToToday(smooth) {
+  // Find the week row containing today
+  const cells = calendarEl.querySelectorAll('.day-cell.today');
+  if (cells.length) {
+    const weekRow = cells[0].closest('.week-row');
+    if (weekRow) {
+      const y = weekRow.getBoundingClientRect().top + window.scrollY - 80;
+      window.scrollTo({ top: y, behavior: smooth ? 'smooth' : 'instant' });
+    }
+  }
+}
+
+// ---- Modal ----
+const modal = document.getElementById('eventModal');
+const titleInput = document.getElementById('eventTitleInput');
+const startDateInput = document.getElementById('startDateInput');
+const endDateInput = document.getElementById('endDateInput');
+const allDayInput = document.getElementById('allDayInput');
+const startTimeInput = document.getElementById('startTimeInput');
+const endTimeInput = document.getElementById('endTimeInput');
+const timeRow = document.getElementById('timeRow');
+const colorPicker = document.getElementById('colorPicker');
+const colorOverridesEl = document.getElementById('colorOverrides');
+const overrideList = document.getElementById('overrideList');
+const deleteBtn = document.getElementById('deleteBtn');
+const modalTitleEl = document.getElementById('modalTitle');
+
+let editingId = null;
+let selectedColor = 'blue';
+let currentOverrides = {};
+
+function buildColorPicker(container, selected, onSelect) {
+  container.innerHTML = '';
+  Object.entries(COLORS).forEach(([key, hex]) => {
+    const swatch = document.createElement('div');
+    swatch.className = 'color-swatch' + (key === selected ? ' selected' : '');
+    swatch.style.background = hex;
+    swatch.title = COLOR_NAMES[key];
+    swatch.addEventListener('click', () => {
+      onSelect(key);
+      container.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+      swatch.classList.add('selected');
+    });
+    container.appendChild(swatch);
+  });
+}
+
+function openModal(eventId, defaultDate) {
+  editingId = eventId || null;
+  currentOverrides = {};
+
+  if (editingId) {
+    const ev = loadEvents().find(e => e.id === editingId);
+    if (!ev) return;
+    modalTitleEl.textContent = '予定を編集';
+    titleInput.value = ev.title;
+    startDateInput.value = ev.startDate;
+    endDateInput.value = ev.endDate;
+    allDayInput.checked = ev.allDay;
+    startTimeInput.value = ev.startTime || '09:00';
+    endTimeInput.value = ev.endTime || '10:00';
+    selectedColor = ev.color;
+    currentOverrides = { ...(ev.colorOverrides || {}) };
+    deleteBtn.style.display = '';
+  } else {
+    modalTitleEl.textContent = '予定を作成';
+    titleInput.value = '';
+    const d = defaultDate || todayStr;
+    startDateInput.value = d;
+    endDateInput.value = d;
+    allDayInput.checked = true;
+    startTimeInput.value = '09:00';
+    endTimeInput.value = '10:00';
+    selectedColor = 'blue';
+    deleteBtn.style.display = 'none';
+  }
+
+  timeRow.style.display = allDayInput.checked ? 'none' : 'flex';
+  buildColorPicker(colorPicker, selectedColor, c => {
+    selectedColor = c;
+    updateOverrideUI();
+  });
+  updateOverrideUI();
+  modal.classList.add('active');
+  titleInput.focus();
+}
+
+function updateOverrideUI() {
+  const start = startDateInput.value;
+  const end = endDateInput.value;
+  if (!start || !end || start === end) {
+    colorOverridesEl.style.display = 'none';
+    return;
+  }
+  const s = parseDate(start), e = parseDate(end);
+  if (e <= s) { colorOverridesEl.style.display = 'none'; return; }
+
+  colorOverridesEl.style.display = '';
+  overrideList.innerHTML = '';
+
+  const cur = new Date(s);
+  while (cur <= e) {
+    const dateStr = formatDate(cur);
+    const row = document.createElement('div');
+    row.className = 'override-row';
+
+    const label = document.createElement('span');
+    label.className = 'date-label';
+    label.textContent = `${cur.getMonth()+1}/${cur.getDate()}`;
+    row.appendChild(label);
+
+    const picker = document.createElement('div');
+    picker.className = 'color-picker';
+    picker.style.display = 'flex';
+    picker.style.gap = '4px';
+
+    const activeColor = currentOverrides[dateStr] || selectedColor;
+    buildColorPicker(picker, activeColor, ((ds) => c => {
+      if (c === selectedColor) delete currentOverrides[ds];
+      else currentOverrides[ds] = c;
+    })(dateStr));
+
+    row.appendChild(picker);
+    overrideList.appendChild(row);
+    cur.setDate(cur.getDate() + 1);
+  }
+}
+
+function closeModal() { modal.classList.remove('active'); editingId = null; }
+
+function saveEvent() {
+  const title = titleInput.value.trim();
+  if (!title) { titleInput.focus(); return; }
+  const startDate = startDateInput.value, endDate = endDateInput.value;
+  if (!startDate || !endDate) return;
+  if (endDate < startDate) { alert('終了日は開始日以降にしてください'); return; }
+
+  const allDay = allDayInput.checked;
+  const ev = {
+    id: editingId || generateId(),
+    title, startDate, endDate, allDay,
+    startTime: allDay ? '' : startTimeInput.value,
+    endTime: allDay ? '' : endTimeInput.value,
+    color: selectedColor,
+    colorOverrides: { ...currentOverrides }
+  };
+
+  const events = loadEvents();
+  if (editingId) {
+    const idx = events.findIndex(e => e.id === editingId);
+    if (idx >= 0) events[idx] = ev;
+  } else {
+    events.push(ev);
+  }
+  saveEvents(events);
+  closeModal();
+  renderCalendar();
+}
+
+function deleteEvent() {
+  if (!editingId) return;
+  if (!confirm('この予定を削除しますか？')) return;
+  saveEvents(loadEvents().filter(e => e.id !== editingId));
+  closeModal();
+  renderCalendar();
+}
+
+allDayInput.addEventListener('change', () => {
+  timeRow.style.display = allDayInput.checked ? 'none' : 'flex';
+});
+startDateInput.addEventListener('change', updateOverrideUI);
+endDateInput.addEventListener('change', updateOverrideUI);
+document.getElementById('saveBtn').addEventListener('click', saveEvent);
+document.getElementById('cancelBtn').addEventListener('click', closeModal);
+deleteBtn.addEventListener('click', deleteEvent);
+document.getElementById('addBtn').addEventListener('click', () => openModal(null));
+modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+document.getElementById('todayBtn').addEventListener('click', () => scrollToToday(true));
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && modal.classList.contains('active')) closeModal();
+});
+
+renderCalendar();
+requestAnimationFrame(() => scrollToToday(false));
+</script>
+</body>
+</html>
