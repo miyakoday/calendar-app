@@ -3,10 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <title>カレンダー</title>
+<link rel="manifest" href="manifest.json">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -34,7 +32,7 @@ header h1 { font-size: 17px; font-weight: 600; }
 
 #monthLabel { font-size: 15px; font-weight: 600; }
 
-#todayBtn, #jumpBtn {
+#todayBtn, #jumpBtn, #dataBtn {
   padding: 5px 14px;
   border: 1px solid #dadce0;
   border-radius: 4px;
@@ -42,7 +40,7 @@ header h1 { font-size: 17px; font-weight: 600; }
   cursor: pointer;
   font-size: 13px;
 }
-#todayBtn:active, #jumpBtn:active { background: #e8eaed; }
+#todayBtn:active, #jumpBtn:active, #dataBtn:active { background: #e8eaed; }
 
 .weekday-bar {
   position: sticky;
@@ -318,6 +316,7 @@ header h1 { font-size: 17px; font-weight: 600; }
   <h1>カレンダー</h1>
   <span id="monthLabel" style="cursor:pointer;"></span>
   <div style="display:flex;gap:6px;">
+    <button id="dataBtn" title="データ管理">&#9776;</button>
     <button id="jumpBtn">移動</button>
     <button id="todayBtn">今日</button>
   </div>
@@ -344,6 +343,19 @@ header h1 { font-size: 17px; font-weight: 600; }
 
 <div id="calendar"></div>
 <button id="addBtn">+</button>
+<input type="file" id="importFile" accept=".json" style="display:none">
+
+<div class="modal-overlay" id="dataModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>データ管理</h2>
+    <div class="modal-actions" style="flex-direction:column;align-items:stretch;">
+      <button class="btn-save" id="exportBtn">エクスポート（バックアップ）</button>
+      <button class="btn-cancel" id="importBtn">インポート（復元）</button>
+      <button class="btn-cancel" id="dataCancelBtn">閉じる</button>
+    </div>
+  </div>
+</div>
 
 <div class="modal-overlay" id="eventModal">
   <div class="modal">
@@ -977,6 +989,60 @@ document.addEventListener('keydown', e => {
     if (jumpModal.classList.contains('active')) jumpModal.classList.remove('active');
   }
 });
+
+// ---- Data management ----
+const dataModal = document.getElementById('dataModal');
+const importFile = document.getElementById('importFile');
+
+document.getElementById('dataBtn').addEventListener('click', () => {
+  dataModal.classList.add('active');
+});
+document.getElementById('dataCancelBtn').addEventListener('click', () => {
+  dataModal.classList.remove('active');
+});
+dataModal.addEventListener('click', e => {
+  if (e.target === dataModal) dataModal.classList.remove('active');
+});
+
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const data = localStorage.getItem(STORAGE_KEY) || '[]';
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `calendar-backup-${todayStr}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('importBtn').addEventListener('click', () => {
+  importFile.click();
+});
+
+importFile.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!Array.isArray(data)) throw new Error();
+      saveEvents(data);
+      dataModal.classList.remove('active');
+      renderCalendar();
+      alert(`${data.length}件の予定を復元しました`);
+    } catch {
+      alert('ファイルの形式が正しくありません');
+    }
+  };
+  reader.readAsText(file);
+  importFile.value = '';
+});
+
+// ---- Service Worker ----
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
 
 renderCalendar();
 requestAnimationFrame(() => scrollToToday(false));
