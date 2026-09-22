@@ -396,6 +396,10 @@ header h1 { font-size: 17px; font-weight: 600; }
       <input type="text" id="postproInput" placeholder="">
     </div>
     <div class="form-group">
+      <label>備考</label>
+      <input type="text" id="notesInput" placeholder="">
+    </div>
+    <div class="form-group">
       <label>色</label>
       <div class="color-picker" id="colorPicker"></div>
     </div>
@@ -759,6 +763,7 @@ const colorPicker = document.getElementById('colorPicker');
 const colorOverridesEl = document.getElementById('colorOverrides');
 const overrideList = document.getElementById('overrideList');
 const parkingInput = document.getElementById('parkingInput');
+const notesInput = document.getElementById('notesInput');
 const productionInput = document.getElementById('productionInput');
 const directorInput = document.getElementById('directorInput');
 const postproInput = document.getElementById('postproInput');
@@ -805,6 +810,7 @@ function openModal(eventId, defaultDate) {
     productionInput.value = ev.production || '';
     directorInput.value = ev.director || '';
     postproInput.value = ev.postpro || '';
+    notesInput.value = ev.notes || '';
     selectedColor = ev.color;
     currentOverrides = { ...(ev.colorOverrides || {}) };
     deleteBtn.style.display = '';
@@ -823,6 +829,7 @@ function openModal(eventId, defaultDate) {
     productionInput.value = '';
     directorInput.value = '';
     postproInput.value = '';
+    notesInput.value = '';
     selectedColor = 'blue';
     deleteBtn.style.display = 'none';
   }
@@ -897,6 +904,7 @@ function saveEvent() {
     production: productionInput.value.trim(),
     director: directorInput.value.trim(),
     postpro: postproInput.value.trim(),
+    notes: notesInput.value.trim(),
     color: selectedColor,
     colorOverrides: { ...currentOverrides }
   };
