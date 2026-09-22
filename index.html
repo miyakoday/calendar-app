@@ -91,6 +91,16 @@ header h1 { font-size: 17px; font-weight: 600; }
   border-bottom: 2.5px solid #bbb;
 }
 
+.month-divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2.5px;
+  background: #bbb;
+  z-index: 3;
+  pointer-events: none;
+}
+
 /* Vertical column lines via background */
 .week-row::after {
   content: '';
@@ -667,12 +677,22 @@ function renderWeekRow(weekRow, wi) {
   weekRow.style.minHeight = '';
   weekRow.innerHTML = '';
 
-  // Month boundary: if next week's Monday is in a different month than this week's Monday
-  const thisMon = week[0];
-  const nextMon = new Date(thisMon);
-  nextMon.setDate(nextMon.getDate() + 7);
-  if (thisMon.getMonth() !== nextMon.getMonth()) {
-    weekRow.classList.add('month-boundary');
+  // Month boundary lines
+  for (let ci = 0; ci < 7; ci++) {
+    if (week[ci].getDate() === 1) {
+      if (ci === 0) {
+        // 1st is Monday: thick line above this row (= thick bottom on previous row)
+        const prevRow = weekRow.previousElementSibling;
+        if (prevRow) prevRow.classList.add('month-boundary');
+      } else {
+        // 1st is mid-week: vertical divider at that column
+        const divider = document.createElement('div');
+        divider.className = 'month-divider';
+        divider.style.left = `calc(${ci} * 100% / 7)`;
+        weekRow.appendChild(divider);
+      }
+      break;
+    }
   }
 
   // Month bg label
