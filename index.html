@@ -386,6 +386,7 @@ header h1 { font-size: 17px; font-weight: 600; }
 <div id="calendar"></div>
 <button id="addBtn">+</button>
 <input type="file" id="importFile" accept=".json" style="display:none">
+<input type="file" id="importIcal" accept=".ics,.ical,.zip" style="display:none">
 
 <div class="modal-overlay" id="dataModal">
   <div class="modal">
@@ -393,7 +394,8 @@ header h1 { font-size: 17px; font-weight: 600; }
     <h2>データ管理</h2>
     <div class="modal-actions" style="flex-direction:column;align-items:stretch;">
       <button class="btn-save" id="exportBtn">エクスポート（バックアップ）</button>
-      <button class="btn-cancel" id="importBtn">インポート（復元）</button>
+      <button class="btn-cancel" id="importBtn">インポート（JSON復元）</button>
+      <button class="btn-cancel" id="importIcalBtn">iCal (.ics) 読み込み</button>
       <button class="btn-cancel" id="dataCancelBtn">閉じる</button>
     </div>
   </div>
@@ -1083,6 +1085,166 @@ importFile.addEventListener('change', e => {
   };
   reader.readAsText(file);
   importFile.value = '';
+});
+
+// ---- iCal import ----
+const importIcal = document.getElementById('importIcal');
+
+document.getElementById('importIcalBtn').addEventListener('click', () => {
+  importIcal.click();
+});
+
+function parseIcs(text) {
+  // Unfold lines (RFC 5545: lines starting with space/tab are continuations)
+  text = text.replace(/\r\n[ \t]/g, '').replace(/\r/g, '');
+  const events = [];
+  const blocks = text.split('BEGIN:VEVENT');
+  for (let i = 1; i < blocks.length; i++) {
+    const block = blocks[i].split('END:VEVENT')[0];
+    const lines = block.split('\n');
+    const props = {};
+    lines.forEach(line => {
+      const m = line.match(/^([A-Z\-;=]+?):(.*)/);
+      if (m) {
+        const key = m[1].split(';')[0];
+        props[key] = m[2].trim();
+      }
+    });
+
+    const summary = props['SUMMARY'] || '';
+    if (!summary) return;
+
+    let startDate = '', endDate = '';
+    const dtstart = props['DTSTART'] || '';
+    const dtend = props['DTEND'] || '';
+
+    // Parse date: YYYYMMDD or YYYYMMDDTHHmmSSZ
+    function icalToDate(v) {
+      const d = v.replace(/[TZ]/g, '').substring(0, 8);
+      if (d.length === 8) return `${d.substring(0,4)}-${d.substring(4,6)}-${d.substring(6,8)}`;
+      return '';
+    }
+
+    startDate = icalToDate(dtstart);
+    endDate = icalToDate(dtend);
+    if (!startDate) continue;
+
+    // iCal end date is exclusive for all-day events, so subtract 1 day
+    const isAllDay = dtstart.indexOf('T') === -1 || lines.some(l => l.includes('VALUE=DATE'));
+    if (isAllDay && endDate) {
+      const ed = parseDate(endDate);
+      ed.setDate(ed.getDate() - 1);
+      endDate = formatDate(ed);
+    }
+    if (!endDate || endDate < startDate) endDate = startDate;
+
+    let startTime = '', endTime = '';
+    if (!isAllDay) {
+      const ts = dtstart.match(/T(\d{2})(\d{2})/);
+      const te = dtend.match(/T(\d{2})(\d{2})/);
+      if (ts) startTime = `${ts[1]}:${ts[2]}`;
+      if (te) endTime = `${te[1]}:${te[2]}`;
+    }
+
+    const description = (props['DESCRIPTION'] || '').replace(/\\n/g, '\n').replace(/\\,/g, ',');
+
+    events.push({
+      id: generateId(),
+      title: summary.replace(/\\,/g, ',').replace(/\\;/g, ';'),
+      startDate,
+      endDate,
+      allDay: isAllDay,
+      startTime,
+      endTime,
+      parking: false,
+      production: '',
+      director: '',
+      postpro: '',
+      notes: description.substring(0, 200),
+      color: 'blue',
+      colorOverrides: {}
+    });
+  }
+  return events;
+}
+
+async function handleIcalFile(file) {
+  let text;
+  if (file.name.endsWith('.zip')) {
+    // Simple ZIP decompression for single-file archives
+    const buf = await file.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    // Find local file header and extract deflated data
+    // Use DecompressionStream if available, otherwise try raw read
+    try {
+      // Find the .ics filename in the zip
+      let offset = 0;
+      while (offset < bytes.length - 4) {
+        if (bytes[offset]===0x50 && bytes[offset+1]===0x4b && bytes[offset+2]===0x03 && bytes[offset+3]===0x04) {
+          const method = bytes[offset+8] | (bytes[offset+9]<<8);
+          const compSize = bytes[offset+18] | (bytes[offset+19]<<8) | (bytes[offset+20]<<16) | (bytes[offset+21]<<24);
+          const fnLen = bytes[offset+26] | (bytes[offset+27]<<8);
+          const exLen = bytes[offset+28] | (bytes[offset+29]<<8);
+          const dataStart = offset + 30 + fnLen + exLen;
+          const compData = bytes.slice(dataStart, dataStart + compSize);
+
+          if (method === 0) {
+            // Stored (no compression)
+            text = new TextDecoder().decode(compData);
+          } else if (method === 8) {
+            // Deflate
+            const ds = new DecompressionStream('deflate-raw');
+            const writer = ds.writable.getWriter();
+            writer.write(compData);
+            writer.close();
+            const reader = ds.readable.getReader();
+            const chunks = [];
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              chunks.push(value);
+            }
+            const total = chunks.reduce((a, c) => a + c.length, 0);
+            const result = new Uint8Array(total);
+            let pos = 0;
+            chunks.forEach(c => { result.set(c, pos); pos += c.length; });
+            text = new TextDecoder().decode(result);
+          }
+          break;
+        }
+        offset++;
+      }
+    } catch (err) {
+      alert('ZIPの展開に失敗しました。.icsファイルを直接選択してください。');
+      return;
+    }
+  } else {
+    text = await file.text();
+  }
+
+  if (!text || !text.includes('BEGIN:VCALENDAR')) {
+    alert('iCalファイルの形式が正しくありません');
+    return;
+  }
+
+  const newEvents = parseIcs(text);
+  if (newEvents.length === 0) {
+    alert('予定が見つかりませんでした');
+    return;
+  }
+
+  const existing = loadEvents();
+  const merged = existing.concat(newEvents);
+  saveEvents(merged);
+  dataModal.classList.remove('active');
+  renderCalendar();
+  alert(`${newEvents.length}件の予定を読み込みました`);
+}
+
+importIcal.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (file) handleIcalFile(file);
+  importIcal.value = '';
 });
 
 // ---- Backup banner ----
