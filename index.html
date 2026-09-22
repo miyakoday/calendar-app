@@ -804,16 +804,10 @@ function renderWeekRow(weekRow, wi) {
     }
     for (let c = startCol; c <= endCol; c++) slots[slotIdx][c] = true;
 
-    segments.forEach((seg, si) => {
-      const isFirst = si === 0;
-      const isLast = si === segments.length - 1;
-      placements.push({
-        ev, slotIdx,
-        startCol: seg.s, endCol: seg.e, color: seg.color,
-        roundLeft: isFirst && !isContLeft,
-        roundRight: isLast && !isContRight,
-        showTitle: true
-      });
+    placements.push({
+      ev, slotIdx, startCol, endCol, segments,
+      roundLeft: !isContLeft,
+      roundRight: !isContRight
     });
   });
 
@@ -830,10 +824,32 @@ function renderWeekRow(weekRow, wi) {
         bar.className = 'event-bar';
         if (p.roundLeft) bar.classList.add('round-left');
         if (p.roundRight) bar.classList.add('round-right');
-        bar.style.background = COLORS[p.color] || COLORS.blue;
-        if (p.color === 'orange') bar.style.color = '#202124';
         bar.style.gridColumn = `${p.startCol + 1} / ${p.endCol + 2}`;
-        bar.textContent = p.showTitle ? (p.ev.parking ? 'P ' : '') + p.ev.title : '';
+        bar.style.position = 'relative';
+        bar.style.overflow = 'hidden';
+
+        // Color segments as background
+        const totalCols = p.endCol - p.startCol + 1;
+        if (p.segments.length === 1) {
+          bar.style.background = COLORS[p.segments[0].color] || COLORS.blue;
+        } else {
+          p.segments.forEach(seg => {
+            const segDiv = document.createElement('div');
+            const left = ((seg.s - p.startCol) / totalCols) * 100;
+            const width = ((seg.e - seg.s + 1) / totalCols) * 100;
+            segDiv.style.cssText = `position:absolute;top:0;bottom:0;left:${left}%;width:${width}%;background:${COLORS[seg.color] || COLORS.blue};`;
+            bar.appendChild(segDiv);
+          });
+        }
+
+        // Text overlay
+        const hasOrange = p.segments.some(seg => seg.color === 'orange');
+        const titleSpan = document.createElement('span');
+        titleSpan.style.cssText = 'position:relative;z-index:1;';
+        if (hasOrange && p.segments[0].color === 'orange') titleSpan.style.color = '#202124';
+        titleSpan.textContent = (p.ev.parking ? 'P ' : '') + p.ev.title;
+        bar.appendChild(titleSpan);
+
         bar.addEventListener('click', e => {
           e.stopPropagation();
           openModal(p.ev.id);
