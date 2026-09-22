@@ -56,8 +56,8 @@ header h1 { font-size: 17px; font-weight: 600; }
   max-width: 960px;
   margin: 0 auto;
 }
-.weekday-bar span:first-child { color: #ea4335; }
-.weekday-bar span:last-child { color: #4285f4; }
+.weekday-bar span:nth-child(6) { color: #4285f4; }
+.weekday-bar span:last-child { color: #ea4335; }
 
 #addBtn {
   width: 52px; height: 52px;
@@ -114,8 +114,8 @@ header h1 { font-size: 17px; font-weight: 600; }
   display: flex; align-items: center; justify-content: center;
 }
 
-.day-cell.sun .day-number { color: #ea4335; }
 .day-cell.sat .day-number { color: #4285f4; }
+.day-cell.sun .day-number { color: #ea4335; }
 
 .day-cell.today .day-number {
   background: #4285f4;
@@ -318,7 +318,7 @@ header h1 { font-size: 17px; font-weight: 600; }
 </header>
 
 <div class="weekday-bar">
-  <span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span>
+  <span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span><span>日</span>
 </div>
 
 <div id="calendar"></div>
@@ -344,6 +344,12 @@ header h1 { font-size: 17px; font-weight: 600; }
       <div class="checkbox-group">
         <input type="checkbox" id="allDayInput" checked>
         <label for="allDayInput">終日</label>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="checkbox-group">
+        <input type="checkbox" id="parkingInput">
+        <label for="parkingInput">駐車場予約</label>
       </div>
     </div>
     <div class="time-row" id="timeRow" style="display:none;">
@@ -401,6 +407,11 @@ function getEventColorForDate(ev, dateStr) {
   return (ev.colorOverrides && ev.colorOverrides[dateStr]) || ev.color;
 }
 
+// Convert JS getDay() (Sun=0) to Mon-start column index (Mon=0, Sun=6)
+function dayToCol(jsDay) {
+  return (jsDay + 6) % 7;
+}
+
 const calendarEl = document.getElementById('calendar');
 const monthLabel = document.getElementById('monthLabel');
 const today = new Date();
@@ -414,11 +425,13 @@ function renderCalendar() {
   const rangeStart = new Date(today.getFullYear(), today.getMonth() - 3, 1);
   const rangeEnd = new Date(today.getFullYear(), today.getMonth() + 9, 0); // last day of month+8
 
-  // Align to week boundaries (Sun start)
+  // Align to week boundaries (Mon start)
   const startDay = new Date(rangeStart);
-  startDay.setDate(startDay.getDate() - startDay.getDay());
+  const startDow = (startDay.getDay() + 6) % 7; // Mon=0
+  startDay.setDate(startDay.getDate() - startDow);
   const endDay = new Date(rangeEnd);
-  if (endDay.getDay() !== 6) endDay.setDate(endDay.getDate() + (6 - endDay.getDay()));
+  const endDow = (endDay.getDay() + 6) % 7; // Mon=0
+  if (endDow !== 6) endDay.setDate(endDay.getDate() + (6 - endDow));
 
   // Build weeks array
   const weeks = [];
@@ -501,8 +514,8 @@ function renderCalendar() {
     activeEvents.forEach(ev => {
       const clampedStart = ev.startDate < weekStartStr ? weekStartStr : ev.startDate;
       const clampedEnd = ev.endDate > weekEndStr ? weekEndStr : ev.endDate;
-      const startCol = parseDate(clampedStart).getDay();
-      const endCol = parseDate(clampedEnd).getDay();
+      const startCol = dayToCol(parseDate(clampedStart).getDay());
+      const endCol = dayToCol(parseDate(clampedEnd).getDay());
 
       const isContLeft = ev.startDate < weekStartStr;
       const isContRight = ev.endDate > weekEndStr;
@@ -564,7 +577,7 @@ function renderCalendar() {
           bar.style.background = COLORS[p.color] || COLORS.blue;
           if (p.color === 'orange') bar.style.color = '#202124';
           bar.style.gridColumn = `${p.startCol + 1} / ${p.endCol + 2}`;
-          bar.textContent = p.showTitle ? p.ev.title : '';
+          bar.textContent = p.showTitle ? (p.ev.parking ? 'P ' : '') + p.ev.title : '';
           bar.addEventListener('click', e => {
             e.stopPropagation();
             openModal(p.ev.id);
@@ -597,8 +610,8 @@ function updateMonthLabel() {
   for (const row of rows) {
     if (row.getBoundingClientRect().bottom > top) {
       const cells = row.querySelectorAll('.day-cell');
-      // Use Thursday (index 4) to determine the month
-      const cell = cells[4] || cells[0];
+      // Use Thursday (index 3 in Mon-start) to determine the month
+      const cell = cells[3] || cells[0];
       if (cell && cell.dataset.date) {
         const d = parseDate(cell.dataset.date);
         monthLabel.textContent = `${d.getFullYear()}年 ${d.getMonth()+1}月`;
@@ -633,6 +646,7 @@ const timeRow = document.getElementById('timeRow');
 const colorPicker = document.getElementById('colorPicker');
 const colorOverridesEl = document.getElementById('colorOverrides');
 const overrideList = document.getElementById('overrideList');
+const parkingInput = document.getElementById('parkingInput');
 const deleteBtn = document.getElementById('deleteBtn');
 const modalTitleEl = document.getElementById('modalTitle');
 
@@ -670,6 +684,7 @@ function openModal(eventId, defaultDate) {
     allDayInput.checked = ev.allDay;
     startTimeInput.value = ev.startTime || '09:00';
     endTimeInput.value = ev.endTime || '10:00';
+    parkingInput.checked = ev.parking || false;
     selectedColor = ev.color;
     currentOverrides = { ...(ev.colorOverrides || {}) };
     deleteBtn.style.display = '';
@@ -678,10 +693,13 @@ function openModal(eventId, defaultDate) {
     titleInput.value = '';
     const d = defaultDate || todayStr;
     startDateInput.value = d;
-    endDateInput.value = d;
+    const nextDay = parseDate(d);
+    nextDay.setDate(nextDay.getDate() + 1);
+    endDateInput.value = formatDate(nextDay);
     allDayInput.checked = true;
     startTimeInput.value = '09:00';
     endTimeInput.value = '10:00';
+    parkingInput.checked = false;
     selectedColor = 'blue';
     deleteBtn.style.display = 'none';
   }
@@ -752,6 +770,7 @@ function saveEvent() {
     title, startDate, endDate, allDay,
     startTime: allDay ? '' : startTimeInput.value,
     endTime: allDay ? '' : endTimeInput.value,
+    parking: parkingInput.checked,
     color: selectedColor,
     colorOverrides: { ...currentOverrides }
   };
@@ -779,7 +798,14 @@ function deleteEvent() {
 allDayInput.addEventListener('change', () => {
   timeRow.style.display = allDayInput.checked ? 'none' : 'flex';
 });
-startDateInput.addEventListener('change', updateOverrideUI);
+startDateInput.addEventListener('change', () => {
+  if (startDateInput.value) {
+    const next = parseDate(startDateInput.value);
+    next.setDate(next.getDate() + 1);
+    endDateInput.value = formatDate(next);
+  }
+  updateOverrideUI();
+});
 endDateInput.addEventListener('change', updateOverrideUI);
 document.getElementById('saveBtn').addEventListener('click', saveEvent);
 document.getElementById('cancelBtn').addEventListener('click', closeModal);
