@@ -1111,18 +1111,21 @@ function saveEvent() {
     events.push(ev);
   }
   saveEvents(events);
+  const scrollTarget = endDate;
   closeModal();
   renderCalendar();
-  scrollToToday(false);
+  setTimeout(() => scrollToDate(scrollTarget, false), 50);
 }
 
 function deleteEvent() {
   if (!editingId) return;
   if (!confirm('この予定を削除しますか？')) return;
+  const ev = loadEvents().find(e => e.id === editingId);
+  const scrollTarget = ev ? ev.endDate : todayStr;
   saveEvents(loadEvents().filter(e => e.id !== editingId));
   closeModal();
   renderCalendar();
-  scrollToToday(false);
+  setTimeout(() => scrollToDate(scrollTarget, false), 50);
 }
 
 allDayInput.addEventListener('change', () => {
