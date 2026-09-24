@@ -986,7 +986,10 @@ function buildColorPicker(container, selected, onSelect) {
   });
 }
 
+let modalScrollY = 0;
+
 function openModal(eventId, defaultDate) {
+  modalScrollY = window.scrollY;
   editingId = eventId || null;
   currentOverrides = {};
 
@@ -1079,7 +1082,13 @@ function updateOverrideUI() {
   }
 }
 
-function closeModal() { modal.classList.remove('active'); editingId = null; }
+function closeModal(restoreScroll) {
+  modal.classList.remove('active');
+  editingId = null;
+  if (restoreScroll) {
+    setTimeout(() => window.scrollTo({ top: modalScrollY, behavior: 'instant' }), 50);
+  }
+}
 
 function saveEvent() {
   const title = titleInput.value.trim();
@@ -1141,10 +1150,10 @@ startDateInput.addEventListener('change', () => {
 });
 endDateInput.addEventListener('change', updateOverrideUI);
 document.getElementById('saveBtn').addEventListener('click', saveEvent);
-document.getElementById('cancelBtn').addEventListener('click', closeModal);
+document.getElementById('cancelBtn').addEventListener('click', () => closeModal(true));
 deleteBtn.addEventListener('click', deleteEvent);
 document.getElementById('addBtn').addEventListener('click', () => openModal(null));
-modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+modal.addEventListener('click', e => { if (e.target === modal) closeModal(true); });
 document.getElementById('todayBtn').addEventListener('click', () => scrollToToday(true));
 
 // Jump modal
@@ -1172,7 +1181,7 @@ jumpModal.addEventListener('click', e => {
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    if (modal.classList.contains('active')) closeModal();
+    if (modal.classList.contains('active')) closeModal(true);
     if (jumpModal.classList.contains('active')) jumpModal.classList.remove('active');
   }
 });
