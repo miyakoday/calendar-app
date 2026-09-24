@@ -473,7 +473,7 @@ header h1 { font-size: 17px; font-weight: 600; }
     </div>
     <div class="form-group">
       <label>備考</label>
-      <input type="text" id="notesInput" placeholder="">
+      <textarea id="notesInput" rows="3" style="width:100%;box-sizing:border-box;font:inherit;padding:6px 8px;border:1px solid #ddd;border-radius:4px;resize:vertical;"></textarea>
     </div>
     <div class="form-group">
       <label>色</label>
@@ -1113,6 +1113,7 @@ function saveEvent() {
   saveEvents(events);
   closeModal();
   renderCalendar();
+  requestAnimationFrame(() => scrollToToday(false));
 }
 
 function deleteEvent() {
@@ -1121,6 +1122,7 @@ function deleteEvent() {
   saveEvents(loadEvents().filter(e => e.id !== editingId));
   closeModal();
   renderCalendar();
+  requestAnimationFrame(() => scrollToToday(false));
 }
 
 allDayInput.addEventListener('change', () => {
