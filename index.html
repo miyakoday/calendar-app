@@ -1113,7 +1113,7 @@ function saveEvent() {
   saveEvents(events);
   closeModal();
   renderCalendar();
-  requestAnimationFrame(() => scrollToToday(false));
+  scrollToToday(false);
 }
 
 function deleteEvent() {
@@ -1122,7 +1122,7 @@ function deleteEvent() {
   saveEvents(loadEvents().filter(e => e.id !== editingId));
   closeModal();
   renderCalendar();
-  requestAnimationFrame(() => scrollToToday(false));
+  scrollToToday(false);
 }
 
 allDayInput.addEventListener('change', () => {
